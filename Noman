@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Minimal example of using Lovefield</title>
+     <script type="text/javascript" src="https://rawgithub.com/google/lovefield/207765f3dda39a0ad1e350a46f3a6f8edc222e05/dist/lovefield.js"></script>
+  </head>
+  <body>
+    <script>
+
+//indexedDB.deleteDatabase('todo');
+var schemaBuilder = lf.schema.create('todo', 1);
+
+schemaBuilder.createTable('Item').
+    addColumn('id', lf.Type.INTEGER).
+    addColumn('description', lf.Type.STRING).
+    addColumn('deadline', lf.Type.DATE_TIME).
+    addColumn('done', lf.Type.BOOLEAN).
+    addPrimaryKey(['id']).
+    addIndex('idxDeadline', ['deadline'], false, lf.Order.DESC);
+schemaBuilder.createTable('Comment').
+    addColumn('id', lf.Type.INTEGER).
+    addColumn('itemId', lf.Type.INTEGER).
+    addColumn('text', lf.Type.STRING).
+    addPrimaryKey(['id']);
+
+var todoDb;
+var item;
+var comment;
+schemaBuilder.connect().then(function(db) {
+  todoDb = db;
+  item = db.getSchema().table('Item');
+  comment = db.getSchema().table('Comment');
+  var row = item.createRow({
+    'id': 1,
+    'description': 'Get a cup of coffee',
+    'deadline': new Date(),
+    'done': false
+  });
+
+  var commentRow = comment.createRow({
+    'id': 1,
+    'itemId': 1,
+    'text': 'OK!'
+  });
+
+  return db.insertOrReplace().into(item).values([row]).exec().
+  then(function() {
+    return db.insertOrReplace().into(comment).values([commentRow]).exec();
+  });
+}).then(function() {
+  return todoDb.select().
+  from(item).
+  innerJoin(comment, comment.itemId.eq(item.id)).
+  where(item.done.eq(false)).exec();
+}).then(function(results) {
+  results.forEach(function(row) {
+    console.log(row.Item.description, 'before', row.Item.deadline, row.Comment.text);
+    document.body.textContent =
+        row.Item.description + ' before ' + row.Item.deadline + '. ' + row.Comment.text;
+  });
+});
+
+    </script>
+  </body>
+</html>
